@@ -109,6 +109,14 @@ function Today({ startDate, onGo }: { startDate: string; onGo: (page: Page) => v
   const heading = date === today ? `${greeting()}, Shivam.` : date < today ? 'Looking back.' : 'Planning ahead.';
   return <section className="today-redesign">
     <header className="hero"><div><p className="kicker">{longDate(date)}</p><h1>{heading}</h1><span>One clear timetable. One meaningful day.</span></div><div className="hero-side"><span className="chip on">✦ Plan · Study · Reflect</span><div className="datenav"><button onClick={() => setDate(shift(date, -1))} aria-label="Previous day">‹</button><input type="date" value={date} onChange={e => setDate(e.target.value || today)}/><button onClick={() => setDate(shift(date, 1))} aria-label="Next day">›</button>{date !== today && <button className="today-btn" onClick={() => setDate(today)}>Today</button>}</div></div></header>
+    <section className="commitment-banner" aria-label="Your daily commitment">
+      <div className="commitment-content">
+        <span className="commitment-eyebrow"><span className="commitment-spark">✦</span> A PROMISE TO MYSELF</span>
+        <h2>IT HAS TO BE DONE.<br/><span>SO I’LL DO IT</span><span className="commitment-period">.</span></h2>
+        <p>No excuses. No waiting for the perfect day. <strong>Show up. Do the work. Keep going.</strong></p>
+      </div>
+      <div className="commitment-mark" aria-hidden="true">01<span>DAY<br/>AT A TIME</span></div>
+    </section>
     <div className="strip">{week.map(d => <button key={d} className={`day ${d === date ? 'on' : ''}`} onClick={() => setDate(d)}><small>{parse(d).toLocaleDateString(undefined, { weekday: 'short' })}</small><b>{parse(d).getDate()}</b></button>)}</div>
     <Schedule date={date}/>
     <article className="intention compact-intention"><span>✦</span><div><p className="kicker">A thought for today</p><h3>{INTENTIONS[parse(date).getDate() % INTENTIONS.length]}</h3></div></article>
