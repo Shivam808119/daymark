@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { getReflection, listOwned, saveReflection } from './lib/api';
+import { clearDayHistory, getReflection, listOwned, saveReflection } from './lib/api';
 import { isoToday } from './lib/planning';
 import { isConfigured, supabase } from './lib/supabase';
 import type { Reflection } from './lib/types';
@@ -235,11 +235,20 @@ function DailyReflection({ date, onSaved }: { date: string; onSaved: () => void 
 function Settings({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
   const [enabled, setEnabled] = useState(store.get('daymark-reminders') === 'yes');
   const [notice, setNotice] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetting, setResetting] = useState(false);
+  async function resetHistory() {
+    if (!window.confirm('Permanently delete all your saved daily schedules and reflections, including today? Goals, books, expenses and routine templates will be kept.')) return;
+    setResetting(true);
+    try { await clearDayHistory(); setResetMessage('Day history cleared on this account and this browser.'); }
+    catch (e) { setResetMessage(`Could not finish clearing history: ${e instanceof Error ? e.message : 'Please try again.'}`); }
+    finally { setResetting(false); }
+  }
   async function toggleNotifications() {
     if (enabled) { store.set('daymark-reminders', 'no'); setEnabled(false); }
     else if (!('Notification' in window)) setNotice('Notifications are not supported in this browser.');
     else { const permission = await Notification.requestPermission(); if (permission === 'granted') { store.set('daymark-reminders', 'yes'); setEnabled(true); setNotice(''); } else setNotice('Allow notifications in your browser settings to enable reminders.'); }
     window.dispatchEvent(new Event('daymark-schedule-changed'));
   }
-  return <section><Title eyebrow="Daymark" title="Settings" text="Make Daymark feel like yours."/><div className="settings"><article className="setting"><div><h3>Notifications</h3><p>Routine reminders while Daymark is open. {notice}</p></div><button className="chip" onClick={() => void toggleNotifications()}>{enabled ? 'Turn off' : 'Turn on'}</button></article><article className="setting"><div><h3>Appearance</h3><p>Switch between a light and dark theme.</p></div><div className="seg"><button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')}>Light</button><button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')}>Dark</button></div></article><InstallCard/><Backup/></div></section>;
+  return <section><Title eyebrow="Daymark" title="Settings" text="Make Daymark feel like yours."/><div className="settings"><article className="setting"><div><h3>Notifications</h3><p>Routine reminders while Daymark is open. {notice}</p></div><button className="chip" onClick={() => void toggleNotifications()}>{enabled ? 'Turn off' : 'Turn on'}</button></article><article className="setting"><div><h3>Appearance</h3><p>Switch between a light and dark theme.</p></div><div className="seg"><button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')}>Light</button><button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')}>Dark</button></div></article><article className="setting"><div><h3>Clear day history</h3><p>Delete saved daily schedules and reflections, including today. Goals, books, expenses and routines stay. {resetMessage}</p></div><button className="chip" disabled={resetting} onClick={() => void resetHistory()}>{resetting ? 'Clearing…' : 'Clear day history'}</button></article><InstallCard/><Backup/></div></section>;
 }
