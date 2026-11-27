@@ -11,7 +11,7 @@ import { daysBetween, download, fmt, goalPct, longDate, parse, shift, shiftMonth
 type G = Goal & { category?: string | null };
 type Templates = Record<Mode, Block[]>;
 const progress = (r: DayRecord, templates: Templates) => {
-  const list = templates[r.mode];
+  const list = templates[r.mode].filter(b => b.kind === 'study' || b.kind === 'stack');
   return list.length ? Math.round(list.filter(b => r.completed.includes(b.id)).length / list.length * 100) : 0;
 };
 
@@ -70,7 +70,7 @@ export function Review({ initialDay, onEditDay }: { initialDay: string | null; o
   if (selected) {
     const row = byDate.get(selected);
     const notes = reflections.find(r => r.entry_date === selected);
-    const blocks = templates[row?.mode ?? 'home'];
+    const blocks = templates[row?.mode ?? 'home'].filter(b => b.kind === 'study' || b.kind === 'stack');
     return <section>
       <div className="dv-bar"><button className="btn ghost" onClick={() => setSelected(null)}>← All days</button><div className="dv-nav"><button className="chip" onClick={() => setSelected(shift(selected, -1))}>‹ Previous</button><button className="chip" onClick={() => setSelected(shift(selected, 1))}>Next ›</button></div>{selected >= today && <button className="btn" onClick={() => onEditDay(selected)}>Edit this day</button>}</div>
       <Title eyebrow="Daily review" title={longDate(selected)} text={row ? `${row.mode === 'college' ? 'College' : 'Home'} day · ${progress(row, templates)}% of timetable complete` : 'No timetable was saved for this day.'}/>

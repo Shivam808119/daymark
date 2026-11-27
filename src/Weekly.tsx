@@ -35,7 +35,7 @@ export function Weekly() {
     if (!data) return null;
     const rows = days.map(day => {
       const record = data.schedule.find(r => r.entry_date === day);
-      const blocks = data.templates[record?.mode ?? 'home'];
+      const blocks = data.templates[record?.mode ?? 'home'].filter(b => b.kind === 'study' || b.kind === 'stack');
       const done = record ? blocks.filter(b => record.completed.includes(b.id)).length : 0;
       const completion = record && blocks.length ? Math.round(100 * done / blocks.length) : 0;
       const sumBlocks = (kind: Block['kind'], checked: boolean) => blocks.reduce((sum, b, i) => sum + (b.kind === kind && b.id !== 'college' && (!checked || record?.completed.includes(b.id)) ? duration(b, blocks[i + 1]) : 0), 0);
