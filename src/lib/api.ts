@@ -87,6 +87,22 @@ export async function saveReflection(r: Partial<Reflection> & { entry_date: stri
   await saveOwned('daily_reflections', r, 'user_id,entry_date');
 }
 
+/** Remove only the signed-in user's saved day records. */
+export async function clearDayHistory() {
+  const uid = await userId();
+  for (const table of ['daily_reflections', 'schedule_days']) {
+    const { error } = await client().from(table).delete().eq('user_id', uid);
+    if (error) throw new Error(error.message);
+    const { count, error: checkError } = await client().from(table).select('id', { count: 'exact', head: true }).eq('user_id', uid);
+    if (checkError || count !== 0) throw new Error(checkError?.message || `Could not clear ${table}.`);
+  }
+  const prefix = `daymark-schedule-${uid}-`;
+  for (const name of Object.keys(localStorage)) {
+    if (name.startsWith(prefix)) localStorage.removeItem(name);
+  }
+  window.dispatchEvent(new Event('daymark-schedule-changed'));
+}
+
 /* ---------- goals ---------- */
 export async function getGoals(): Promise<Goal[]> {
   const { data, error } = await client().from('goals').select('*').order('deadline', { ascending: true });
