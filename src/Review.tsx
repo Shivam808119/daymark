@@ -46,7 +46,7 @@ export function Review({ initialDay, onEditDay }: { initialDay: string | null; o
     ]).then(([days, notes, gs, st, routines]) => { setRows(days); setReflections(notes); setGoals(gs); setSteps(st); setTemplates(routines); });
   }, []);
   const byDate = useMemo(() => new Map(rows.map(r => [r.entry_date, r])), [rows]);
-  const diaryDates = new Set(reflections.map(r => r.entry_date));
+  const diaryDates = new Set([...reflections.map(r => r.entry_date), ...rows.map(r => r.entry_date)]);
   const today = isoToday();
   const latest = rows.filter(r => r.entry_date <= today);
   const completed = latest.filter(r => progress(r, templates) === 100).length;
@@ -72,7 +72,7 @@ export function Review({ initialDay, onEditDay }: { initialDay: string | null; o
     const notes = reflections.find(r => r.entry_date === selected);
     const blocks = templates[row?.mode ?? 'home'];
     return <section>
-      <div className="dv-bar"><button className="btn ghost" onClick={() => setSelected(null)}>← All days</button><div className="dv-nav"><button className="chip" onClick={() => setSelected(shift(selected, -1))}>‹ Previous</button><button className="chip" onClick={() => setSelected(shift(selected, 1))}>Next ›</button></div><button className="btn" onClick={() => onEditDay(selected)}>Edit this day</button></div>
+      <div className="dv-bar"><button className="btn ghost" onClick={() => setSelected(null)}>← All days</button><div className="dv-nav"><button className="chip" onClick={() => setSelected(shift(selected, -1))}>‹ Previous</button><button className="chip" onClick={() => setSelected(shift(selected, 1))}>Next ›</button></div>{selected >= today && <button className="btn" onClick={() => onEditDay(selected)}>Edit this day</button>}</div>
       <Title eyebrow="Daily review" title={longDate(selected)} text={row ? `${row.mode === 'college' ? 'College' : 'Home'} day · ${progress(row, templates)}% of timetable complete` : 'No timetable was saved for this day.'}/>
       <div className="stats"><article className="stat"><b>{row ? `${progress(row, templates)}%` : '–'}</b><span>timetable completion</span></article><article className="stat"><b>{row?.targets.filter(t => t.done).length ?? 0}/{row?.targets.length ?? 0}</b><span>goals achieved</span></article><article className="stat"><b>{notes ? '✓' : '–'}</b><span>reflection recorded</span></article></div>
       <div className="two review-day-grid"><article className="panel"><h2>Timetable</h2>{row ? blocks.map(b => <div key={b.id} className={`dv-task ${row.completed.includes(b.id) ? 'done' : ''}`}><span>{row.completed.includes(b.id) ? '✓' : '○'}</span><b>{b.title}<small className="review-time">{b.time}</small></b></div>) : <p className="empty">No timetable recorded. You can select one in Today.</p>}</article>
@@ -96,7 +96,7 @@ export function Review({ initialDay, onEditDay }: { initialDay: string | null; o
             const day = byDate.get(d);
             const pct = day ? progress(day, templates) : 0;
             return <button key={d} title={`${d}: ${day ? `${day.mode} day, ${pct}% done` : 'Not tracked'}`} className={`cal-day ${pct >= 80 ? 'l3' : pct >= 50 ? 'l2' : pct > 0 ? 'l1' : ''} ${d === today ? 'now' : ''} ${day?.mode === 'college' ? 'cal-college' : ''}`} onClick={() => setSelected(d)}>{parse(d).getDate()}{diaryDates.has(d) && <i/>}{goals.some(g => g.deadline === d) && <u className="flag"/>}</button>;
-          })}</div><p className="legend">Green = timetable progress · blue border = college day · dot = reflection · red marker = deadline</p>
+          })}</div><p className="legend">Green = timetable progress · blue border = college day · dot = saved activity · red marker = deadline</p>
         </div></article>
       <article className="panel"><h2>Recent seven days</h2><div className="review-week-bars">{week.map(d => { const row = byDate.get(d); const pct = row ? progress(row, templates) : 0; return <button className="review-week-day" key={d} onClick={() => setSelected(d)} title={`${d}: ${pct}%`}><div className="review-week-track"><span style={{ height: `${pct}%` }}/></div><small>{parse(d).toLocaleDateString(undefined, { weekday: 'short' })}</small><b>{row ? `${pct}%` : '–'}</b></button>; })}</div><p className="schedule-help">These percentages come from your selected daily timetable, not the old task list.</p></article>
     </div>

@@ -131,7 +131,7 @@ export function useScheduleReminders() {
       const now = new Date();
       const date = isoToday();
       const row = cached(date);
-      const blocks = validBlocks(readTemplates()[row.mode]);
+      const blocks = validBlocks(readTemplates()[row.mode]).filter(b => b.kind === 'study' || b.kind === 'stack');
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const active = blocks.reduce((found, b, index) => {
         const [h, m] = b.starts.split(':').map(Number);
@@ -208,7 +208,7 @@ export function Schedule({ date }: { date: string }) {
   const [reminders, setReminders] = useState(store.get('daymark-reminders') === 'yes');
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = window.setInterval(() => setClock(new Date()), 30_000); return () => window.clearInterval(id); }, []);
-  const blocks = validBlocks(templates[record.mode]);
+  const blocks = validBlocks(templates[record.mode]).filter(b => b.kind === 'study' || b.kind === 'stack');
   const completed = blocks.filter(b => record.completed.includes(b.id)).length;
   const progress = blocks.length ? Math.round(100 * completed / blocks.length) : 0;
   const remaining = useMemo(() => blocks.find(b => !record.completed.includes(b.id)), [blocks, record.completed]);
@@ -223,7 +223,8 @@ export function Schedule({ date }: { date: string }) {
     return () => { alive = false; };
   }, []);
   async function saveTemplate(mode: Mode, nextBlocks: Block[]) {
-    const next = { ...templates, [mode]: validBlocks(nextBlocks) };
+    const hidden = templates[mode].filter(b => b.kind !== 'study' && b.kind !== 'stack');
+    const next = { ...templates, [mode]: validBlocks([...hidden, ...nextBlocks]) };
     setTemplates(next);
     writeTemplates(next);
     try { await saveOwned('schedule_templates', { mode, blocks: next[mode] }, 'user_id,mode'); }
@@ -235,7 +236,7 @@ export function Schedule({ date }: { date: string }) {
       title: block.title, starts: block.starts,
       ends: block.ends ?? blocks[(index ?? -1) + 1]?.starts ?? '23:00',
       kind: block.kind ?? '',
-    } : { title: '', starts: '09:00', ends: '10:00', kind: '' });
+    } : { title: '', starts: '09:00', ends: '10:00', kind: 'study' });
     setEditingRoutine(true);
   }
   function commitBlock(e: FormEvent<HTMLFormElement>) {
@@ -243,10 +244,6 @@ export function Schedule({ date }: { date: string }) {
     if (!draftBlock.title.trim() || draftBlock.ends <= draftBlock.starts) { setMessage('Add a title and make the finish time later than the start time.'); return; }
     const newBlock: Block = { id: editBlockId ?? crypto.randomUUID(), starts: draftBlock.starts, ends: draftBlock.ends, time: `${formatTime(draftBlock.starts)} – ${formatTime(draftBlock.ends)}`, title: draftBlock.title.trim(), ...(draftBlock.kind ? { kind: draftBlock.kind as Block['kind'] } : {}) };
     const other = blocks.filter(b => b.id !== editBlockId);
-    if (other.some(b => {
-      const otherEnd = b.ends ?? blocks[blocks.findIndex(x => x.id === b.id) + 1]?.starts ?? '23:00';
-      return newBlock.starts < otherEnd && newBlock.ends! > b.starts;
-    })) { setMessage('This time overlaps another routine block. Choose a free time or edit the existing block.'); return; }
     void saveTemplate(record.mode, [...other, newBlock]);
     setEditingRoutine(false); setEditBlockId(null); setMessage('');
   }
@@ -301,7 +298,7 @@ export function Schedule({ date }: { date: string }) {
 
   return <section className="schedule-page">
     <div className="schedule-toolbar panel">
-      <div><p className="kicker">Your daily timetable</p><h2>Is this a college day or a home day?</h2><p className="schedule-help">Choose for {date === isoToday() ? 'today' : date}. You can also prepare another day using the date selector above.</p></div>
+      <div><p className="kicker">YOUR DAY, YOUR PACE</p><h2>Make a little space for what matters.</h2><p className="schedule-help">Choose your day, set a few priorities, and adjust as life happens.</p></div>
       <div className="schedule-switch" role="group" aria-label="Choose schedule type">
         <button className={record.mode === 'home' ? 'active' : ''} onClick={() => { if (record.mode !== 'home') void persist({ ...record, mode: 'home', completed: [] }); }}>⌂ Home day</button>
         <button className={record.mode === 'college' ? 'active' : ''} onClick={() => { if (record.mode !== 'college') void persist({ ...record, mode: 'college', completed: [] }); }}>▤ College day</button>
@@ -313,7 +310,14 @@ export function Schedule({ date }: { date: string }) {
       </div>
       <p className="reminder-hint">Notifications work while Daymark is running. To receive reliable alerts when it is closed, a separate web-push backend is required; your phone may allow notifications to be dismissed.</p>
     </div>
-    {activeBlock && <div className="schedule-now" role="status"><span className="schedule-now-dot"/><div><small>YOUR CURRENT BLOCK · {displayTime(activeBlock)}</small><b>{activeBlock.title}</b><span>Stays here until you mark the activity complete.</span></div><button className="btn" onClick={() => toggleBlock(activeBlock, true)}>Mark done ✓</button></div>}
+    <div className="daily-workspace"><article className="panel focus-plan"><div className="focus-plan-head"><div><p className="kicker">01 · YOUR DAILY ANCHORS</p><h2>Show up for yourself.</h2><p>Keep your essentials simple. You can adjust your day whenever plans change.</p></div></div>
+      <div className="daily-anchors">{[['daily-english', 'English speaking', 'Speak, listen or practise aloud'], ['daily-workout', 'Workout', 'Move in a way that works for you']].map(([id, title, hint]) => <label className="anchor-row" key={id}><input type="checkbox" checked={record.completed.includes(id)} onChange={e => void persist({ ...record, completed: e.target.checked ? [...record.completed, id] : record.completed.filter(x => x !== id) })}/><span><strong>{title}</strong><small>{hint}</small></span></label>)}</div>
+      <div className="focus-plan-head"><div><p className="kicker">02 · CHOOSE YOUR FOCUS</p><h2>Three things that matter.</h2><p>Choose up to three meaningful priorities. Progress counts, even if your day changes.</p></div><span>{record.targets.filter(t => t.done).length} / {record.targets.length} done</span></div>
+      <form className="priority-simple" onSubmit={e => { e.preventDefault(); if (!newGoal.trim() || record.targets.length >= 3) return; void persist({ ...record, targets: [...record.targets, { title: newGoal.trim(), done: false }] }); setNewGoal(''); }}><input aria-label="New daily priority" placeholder="What would make today meaningful?" value={newGoal} onChange={e => setNewGoal(e.target.value)} required disabled={record.targets.length >= 3}/><button className="btn" disabled={record.targets.length >= 3}>+ Add priority</button></form>
+      <div className="priority-list">{record.targets.map((t, i) => <div className={`priority-item ${t.done ? 'is-finished' : ''}`} key={i}><input aria-label={`Complete ${t.title}`} type="checkbox" checked={t.done} onChange={() => void persist({ ...record, targets: record.targets.map((x, ix) => ix === i ? { ...x, done: !x.done } : x) })}/><div><b>{t.title}</b></div><button className="plain" aria-label={`Remove ${t.title}`} onClick={() => void persist({ ...record, targets: record.targets.filter((_, ix) => ix !== i) })}>×</button></div>)}</div>{!record.targets.length && <p className="priority-empty">✦ Start small. One priority is enough.</p>}
+    </article>
+    <section className="optional-routine"><header className="routine-intro"><small>03 · YOUR STUDY WINDOWS</small><h2>Time to go deeper.</h2><p>Use these study windows as a guide. When practicals or life interrupt, adjust and pick up again.</p></header>
+    {activeBlock && <div className="schedule-now" role="status"><span className="schedule-now-dot"/><div><small>SUGGESTED NOW · {displayTime(activeBlock)}</small><b>{activeBlock.title}</b><span>Use this as a guide, and adjust when you need to.</span></div><button className="btn" onClick={() => toggleBlock(activeBlock, true)}>Mark done ✓</button></div>}
     <div className="routine-manage-bar"><div><b>My routine</b><p>Only you can see and change the timetable saved to your account.</p></div><button className="chip on" onClick={() => { setEditingRoutine(v => !v); setEditBlockId(null); }}>{editingRoutine ? 'Close editor' : '✎ Edit my routine'}</button></div>
     {editingRoutine && <section className="panel routine-editor">
       <div className="schedule-section-heading"><h2>{editBlockId ? 'Edit this activity' : 'Add an activity'}</h2><span>{record.mode === 'home' ? 'Home day' : 'College day'}</span></div>
@@ -321,7 +325,7 @@ export function Schedule({ date }: { date: string }) {
         <label>Activity title<input value={draftBlock.title} onChange={e => setDraftBlock(v => ({ ...v, title: e.target.value }))} placeholder="e.g. Study Python or morning workout" required maxLength={150}/></label>
         <label>Starts at<input type="time" required value={draftBlock.starts} onChange={e => setDraftBlock(v => ({ ...v, starts: e.target.value }))}/></label>
         <label>Ends at<input type="time" required value={draftBlock.ends} onChange={e => setDraftBlock(v => ({ ...v, ends: e.target.value }))}/></label>
-        <label>Activity type<select value={draftBlock.kind} onChange={e => setDraftBlock(v => ({ ...v, kind: e.target.value }))}><option value="">Daily life</option><option value="study">Study</option><option value="stack">Full-stack / coding</option><option value="break">Break / rest</option></select></label>
+        <label>Activity type<select value={draftBlock.kind} onChange={e => setDraftBlock(v => ({ ...v, kind: e.target.value }))}><option value="study">Study</option><option value="stack">Full-stack / coding</option></select></label>
         <button className="btn">{editBlockId ? 'Save changes' : '+ Add activity'}</button>
         {editBlockId && <button type="button" className="chip" onClick={() => startEditing()}>Cancel edit</button>}
       </form>
@@ -341,19 +345,8 @@ export function Schedule({ date }: { date: string }) {
           <span className="schedule-time">{displayTime(b)}</span><span className="schedule-name">{b.title}</span>
         </label>{editingRoutine && <div className="routine-row-actions"><button className="chip" onClick={() => startEditing(b, i)}>Edit</button><button className="chip danger-chip" onClick={() => { if (window.confirm(`Delete “${b.title}” from your ${record.mode} routine?`)) void saveTemplate(record.mode, blocks.filter(x => x.id !== b.id)); }}>Delete</button></div>}</div>)}
       </article>
-      <div className="schedule-aside">
-        <article className="panel today-priorities"><div className="schedule-section-heading"><div><p className="kicker">TODAY'S PRIORITIES</p><h2>Three things that matter.</h2></div><span>{record.targets.filter(t => t.done).length} of {record.targets.length} done</span></div>
-          <p className="schedule-help">Just write what you want to achieve. Your planned and completed goals will appear automatically in your reflection.</p>
-          <form className="priority-simple" onSubmit={e => { e.preventDefault(); if (!newGoal.trim()) return; void persist({ ...record, targets: [...record.targets, { title: newGoal.trim(), done: false }] }); setNewGoal(''); }}>
-            <input aria-label="New daily priority" placeholder="e.g. Finish Python practical 4" value={newGoal} onChange={e => setNewGoal(e.target.value)} required />
-            <button className="btn">+ Add</button>
-          </form>
-          <div className="priority-progress" aria-label="Daily goals completed"><i style={{ width: `${record.targets.length ? record.targets.filter(t => t.done).length / record.targets.length * 100 : 0}%` }}/></div>
-          <div className="priority-list">{record.targets.map((t, i) => <div className={`priority-item ${t.done ? 'is-finished' : ''}`} key={i}><input aria-label={`Complete ${t.title}`} type="checkbox" checked={t.done} onChange={() => void persist({ ...record, targets: record.targets.map((x, ix) => ix === i ? { ...x, done: !x.done } : x) })}/><div><b>{t.title}</b></div><button className="plain" aria-label={`Remove ${t.title}`} onClick={() => void persist({ ...record, targets: record.targets.filter((_, ix) => ix !== i) })}>×</button></div>)}</div>
-          {!record.targets.length && <p className="priority-empty">✦ Start with one small win. Add a goal above.</p>}
-        </article>
-      </div>
     </div>
+    </section></div>
     {message && <p className="schedule-message" role="status">{message}</p>}
   </section>;
 }

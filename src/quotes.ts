@@ -1,0 +1,17 @@
+export const QUOTES = [
+  ['Discipline Over Feelings', 'I will not let my mood decide my future. Whether I feel motivated or not, I will show up and do the work.'],
+  ['No One Is Coming', 'No one is coming to build my dreams for me. My future is my responsibility, and I will take full ownership of it.'],
+  ['The Power of One Day', "I don't need to change my entire life today. I only need to make today count. Greatness is built one day at a time."],
+  ['Remember Why You Started', 'Whenever I feel like quitting, I will remember the life I promised myself and the family I want to make proud.'],
+  ['Be Unstoppable', 'Obstacles may slow me down, but they will never decide where I stop. I will find a way, learn a way, or create a way.'],
+  ['Compete With Yourself', 'My competition is not the person ahead of me. My competition is the person I was yesterday. Every day, I must become better.'],
+  ['Dreams Demand Sacrifice', 'If I want an extraordinary life, I must be willing to make extraordinary efforts. My actions must be as big as my ambitions.'],
+  ['Become Worthy of Your Dreams', 'I will not simply wish for success. I will develop the knowledge, skills, character, and courage required to achieve it.'],
+  ['Turn Pain Into Power', 'My struggles are not proof that I cannot succeed. They are opportunities to become stronger, wiser, and more resilient.'],
+  ['Think Beyond Limits', 'I refuse to let my current circumstances define my possibilities. Where I begin is not where I must finish.'],
+  ['Consistency Creates Greatness', 'One hour of focused effort every day can transform my future. I will trust consistent action more than temporary excitement.'],
+  ['Do the Difficult Things', 'When something is difficult, I will not immediately escape it. The challenges I overcome today become the strengths I carry tomorrow.'],
+  ['Build, Don’t Just Dream', 'Ideas alone will not change my life. I will study, experiment, build, fail, improve, and keep building until my vision becomes reality.'],
+  ['Success With Character', 'I want to become wealthy and powerful, but never at the cost of my integrity. I will build a great life while remaining a good human being.'],
+  ['Make It Happen', 'I have one life, and I refuse to waste it waiting for the perfect moment. I will begin now, give my best, and keep going. No excuses.'],
+];
