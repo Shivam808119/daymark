@@ -11,8 +11,10 @@ export function VisionBoard({ date }: { date: string }) {
   const [uploading, setUploading] = useState(false);
   const [drawingOpen, setDrawingOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [tool, setTool] = useState<'pen' | 'eraser' | 'move'>('pen');
+  const [ink, setInk] = useState('#133d31');
   const canvas = useRef<HTMLCanvasElement>(null);
-  const isDrawing = useRef(false);
+  const activePointer = useRef<number | null>(null);
   const load = useCallback(async () => {
     const rows = await loadScheduleHistory();
     const row = rows.find(x => x.entry_date === date) ?? null;
@@ -57,14 +59,21 @@ export function VisionBoard({ date }: { date: string }) {
   function draw(e: PointerEvent<HTMLCanvasElement>, action: 'down' | 'move' | 'up') {
     const target = canvas.current;
     if (!target) return;
-    if (action === 'up') { isDrawing.current = false; return; }
-    if (action === 'move' && !isDrawing.current) return;
+    if (action === 'up') {
+      if (activePointer.current === e.pointerId) activePointer.current = null;
+      return;
+    }
+    if (tool === 'move') return;
+    if (action === 'down' && (activePointer.current !== null || (e.pointerType === 'mouse' && e.button !== 0))) return;
+    if (action === 'move' && activePointer.current !== e.pointerId) return;
+    e.preventDefault();
     const context = target.getContext('2d'); if (!context) return;
     const rect = target.getBoundingClientRect();
     const x = (e.clientX - rect.left) * target.width / rect.width;
     const y = (e.clientY - rect.top) * target.height / rect.height;
-    context.strokeStyle = '#133d31'; context.lineWidth = 4; context.lineCap = 'round'; context.lineJoin = 'round';
-    if (action === 'down') { isDrawing.current = true; target.setPointerCapture(e.pointerId); context.beginPath(); context.moveTo(x, y); context.lineTo(x + .01, y + .01); context.stroke(); }
+    context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    context.strokeStyle = tool === 'eraser' ? '#000000' : ink; context.lineWidth = tool === 'eraser' ? 24 : 4; context.lineCap = 'round'; context.lineJoin = 'round';
+    if (action === 'down') { activePointer.current = e.pointerId; target.setPointerCapture(e.pointerId); context.beginPath(); context.moveTo(x, y); context.lineTo(x + .01, y + .01); context.stroke(); }
     else { context.lineTo(x, y); context.stroke(); }
   }
   async function saveDrawing() {
@@ -86,7 +95,7 @@ export function VisionBoard({ date }: { date: string }) {
       <label className="vision-action"><span>↥</span><strong>{uploading ? 'Uploading…' : 'Upload an image'}</strong><small>A drawing, screenshot or photo</small><input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={e => void upload(e.target.files?.[0])}/></label>
       <button className="vision-action" onClick={() => setDrawingOpen(x => !x)}><span>✎</span><strong>{drawingOpen ? 'Close drawing pad' : 'Draw here'}</strong><small>Sketch something on the page</small></button>
     </div>
-    {drawingOpen && <div className="vision-drawing"><canvas ref={canvas} width={900} height={390} onPointerDown={e => draw(e, 'down')} onPointerMove={e => draw(e, 'move')} onPointerUp={e => draw(e, 'up')} onPointerCancel={e => draw(e, 'up')} aria-label="Drawing pad"/><div className="vision-drawing-actions"><button className="chip" onClick={() => { const context = canvas.current?.getContext('2d'); if (context && canvas.current) context.clearRect(0, 0, canvas.current.width, canvas.current.height); }}>Clear drawing</button><button className="btn" onClick={() => void saveDrawing()} disabled={uploading}>Save drawing</button></div></div>}
+    {drawingOpen && <div className="vision-drawing"><div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools"><div className="drawing-tools" aria-label="Choose a tool"><button type="button" className={tool === 'pen' ? 'selected' : ''} aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}>✎ Pen</button><button type="button" className={tool === 'eraser' ? 'selected' : ''} aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>◒ Eraser</button><button type="button" className={tool === 'move' ? 'selected' : ''} aria-pressed={tool === 'move'} onClick={() => setTool('move')}>↖ Move</button></div><div className="drawing-colors" aria-label="Pen colors">{[['#133d31', 'Forest'], ['#17212a', 'Black'], ['#2869bd', 'Blue'], ['#cb523b', 'Coral'], ['#8a57b5', 'Purple']].map(([color, label]) => <button key={color} type="button" className={`drawing-color ${ink === color ? 'selected' : ''}`} style={{ backgroundColor: color }} aria-label={`${label} ink`} aria-pressed={ink === color} onClick={() => { setInk(color); setTool('pen'); }}/>)}</div></div><p className="drawing-hint">{tool === 'move' ? 'Move or scroll without drawing.' : 'Touch the canvas with your pen or press the mouse to draw. Lift to stop.'}</p><canvas ref={canvas} width={900} height={390} style={{ touchAction: tool === 'move' ? 'pan-y' : 'none', cursor: tool === 'move' ? 'default' : tool === 'eraser' ? 'cell' : 'crosshair' }} onPointerDown={e => draw(e, 'down')} onPointerMove={e => draw(e, 'move')} onPointerUp={e => draw(e, 'up')} onPointerCancel={e => draw(e, 'up')} onLostPointerCapture={e => draw(e, 'up')} aria-label="Drawing pad"/><div className="vision-drawing-actions"><button className="chip" onClick={() => { const context = canvas.current?.getContext('2d'); if (context && canvas.current) context.clearRect(0, 0, canvas.current.width, canvas.current.height); }}>Clear drawing</button><button className="btn" onClick={() => void saveDrawing()} disabled={uploading}>Save drawing</button></div></div>}
     {imageUrl && <div className="vision-saved"><img src={imageUrl} alt="Your saved drawing or vision image"/><button className="chip" onClick={() => void removeImage()}>Remove image</button></div>}
     <label className="vision-explain">Add an explanation (optional)<textarea rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="What did you draw, imagine or want to remember?"/></label>
     <div className="vision-save-bottom"><span role="status">{message}</span><button className="btn" onClick={() => void save({ board_note: note })}>Save my note</button></div>
